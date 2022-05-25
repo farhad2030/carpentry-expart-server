@@ -61,6 +61,14 @@ async function run() {
       }
     };
 
+    // get  user
+    app.get("/user/:email", verifyJWT, async (req, res) => {
+      const email = req.params.email;
+      const users = await userCollection.findOne({
+        email: email,
+      });
+      res.send(users);
+    });
     // get all user
     app.get("/users", verifyJWT, verifyAdmin, async (req, res) => {
       const users = await userCollection.find().toArray();
@@ -150,6 +158,24 @@ async function run() {
       console.log("product", product);
       console.log("product quantity", product.quantity - order.orderQuantity);
       res.send(result);
+    });
+
+    // get my order
+    app.get("/orders/:email", async (req, res) => {
+      const email = req.params.email;
+      const query = { email: email };
+      const orders = await orderCollection.find(query).toArray();
+      const products = await productsCollection.find().toArray();
+
+      const orderarray = orders.map((order) => {
+        const productDetails = products.find(
+          (product) => product._id == order.productId
+        );
+        return { ...productDetails, ...order };
+      });
+      console.log(orderarray);
+
+      res.send(orderarray);
     });
   } finally {
     //try end
