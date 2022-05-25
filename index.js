@@ -45,6 +45,9 @@ async function run() {
       .db("carpetry-expert")
       .collection("products");
     const userCollection = client.db("carpentry-expert").collection("users");
+    const ProductsCollection = client
+      .db("carpentry-expert")
+      .collection("products");
 
     // /apis
     // varify admin
@@ -60,20 +63,33 @@ async function run() {
       }
     };
 
+    // app.get("/products", async (req, res) => {
+    //   const query = {};
+    //   const cursor = ProductsCollection.find(query);
+    //   const products = await cursor.toArray();
+    //   console.log(products);
+    //   res.send("all product data data");
+    // });
+
+    // get all products
     app.get("/products", async (req, res) => {
-      const query = {};
-      const cursor = productCollection.find(query);
-      const products = await cursor.toArray();
-      console.log(products);
-      res.send("all product data data");
+      const products = await ProductsCollection.find().toArray();
+      res.send(products);
     });
 
     // get all user
-    app.get("/user", verifyJWT, async (req, res) => {
+    app.get("/users", verifyJWT, verifyAdmin, async (req, res) => {
       const users = await userCollection.find().toArray();
       res.send(users);
     });
 
+    // get admin
+    app.get("/admin/:email", async (req, res) => {
+      const email = req.params.email;
+      const user = await userCollection.findOne({ email: email });
+      const isAdmin = user?.role === "admin";
+      res.send({ admin: isAdmin });
+    });
     // set Admin
     app.put("/user/admin/:email", verifyJWT, verifyAdmin, async (req, res) => {
       const email = req.params.email;
@@ -85,7 +101,7 @@ async function run() {
       res.send(result);
     });
 
-    // user collection
+    // set user collection
     app.put("/user/:email", async (req, res) => {
       const email = req.params.email;
       const user = req.body;
