@@ -41,13 +41,10 @@ const client = new MongoClient(uri, {
 async function run() {
   try {
     await client.connect();
-    const productCollection = client
-      .db("carpetry-expert")
-      .collection("products");
-    const userCollection = client.db("carpentry-expert").collection("users");
-    const ProductsCollection = client
+    const productsCollection = client
       .db("carpentry-expert")
       .collection("products");
+    const userCollection = client.db("carpentry-expert").collection("users");
 
     // /apis
     // varify admin
@@ -62,20 +59,6 @@ async function run() {
         res.status(403).send({ message: "forbidden" });
       }
     };
-
-    // app.get("/products", async (req, res) => {
-    //   const query = {};
-    //   const cursor = ProductsCollection.find(query);
-    //   const products = await cursor.toArray();
-    //   console.log(products);
-    //   res.send("all product data data");
-    // });
-
-    // get all products
-    app.get("/products", async (req, res) => {
-      const products = await ProductsCollection.find().toArray();
-      res.send(products);
-    });
 
     // get all user
     app.get("/users", verifyJWT, verifyAdmin, async (req, res) => {
@@ -122,6 +105,19 @@ async function run() {
         { expiresIn: "1d" }
       );
       res.send({ result, token });
+    });
+
+    // get all products
+    app.get("/products", async (req, res) => {
+      const products = await productsCollection.find().toArray();
+      res.send(products);
+    });
+    // verifyAdmin, verifyJWT,
+
+    app.post("/products", verifyJWT, verifyAdmin, async (req, res) => {
+      const products = req.body;
+      const result = await productsCollection.insertOne(products);
+      res.send(result);
     });
   } finally {
     //try end
