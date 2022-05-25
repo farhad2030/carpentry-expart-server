@@ -131,7 +131,24 @@ async function run() {
     // place order
     app.post("/order", verifyJWT, async (req, res) => {
       const order = req.body;
+      console.log(order.productId);
+
       const result = await orderCollection.insertOne(order);
+      const id = order.productId;
+
+      const product = await productsCollection.findOne({ _id: ObjectId(id) });
+
+      const filter = { _id: ObjectId(id) };
+      const productResult = await productsCollection.updateOne(
+        filter,
+        {
+          $set: { quantity: product.quantity - order.orderQuantity },
+        },
+        { upsert: true }
+      );
+      console.log(productResult);
+      console.log("product", product);
+      console.log("product quantity", product.quantity - order.orderQuantity);
       res.send(result);
     });
   } finally {
