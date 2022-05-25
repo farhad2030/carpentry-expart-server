@@ -45,6 +45,7 @@ async function run() {
       .db("carpentry-expert")
       .collection("products");
     const userCollection = client.db("carpentry-expert").collection("users");
+    const orderCollection = client.db("carpentry-expert").collection("orders");
 
     // /apis
     // varify admin
@@ -107,16 +108,30 @@ async function run() {
       res.send({ result, token });
     });
 
+    // get single  product
+    app.get("/product/:id", verifyJWT, async (req, res) => {
+      const id = req.params.id;
+      const product = await productsCollection.findOne({ _id: ObjectId(id) });
+      res.send(product);
+    });
+
     // get all products
     app.get("/products", async (req, res) => {
       const products = await productsCollection.find().toArray();
       res.send(products);
     });
-    // verifyAdmin, verifyJWT,
 
+    // add a product
     app.post("/products", verifyJWT, verifyAdmin, async (req, res) => {
       const products = req.body;
       const result = await productsCollection.insertOne(products);
+      res.send(result);
+    });
+
+    // place order
+    app.post("/order", verifyJWT, async (req, res) => {
+      const order = req.body;
+      const result = await orderCollection.insertOne(order);
       res.send(result);
     });
   } finally {
