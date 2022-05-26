@@ -46,6 +46,9 @@ async function run() {
       .collection("products");
     const userCollection = client.db("carpentry-expert").collection("users");
     const orderCollection = client.db("carpentry-expert").collection("orders");
+    const reviewsCollection = client
+      .db("carpentry-expert")
+      .collection("reviews");
 
     // /apis
     // varify admin
@@ -60,6 +63,28 @@ async function run() {
         res.status(403).send({ message: "forbidden" });
       }
     };
+    // update user
+
+    app.put(
+      "/profileUpdate/:email",
+      verifyJWT,
+
+      async (req, res) => {
+        const updateDoc = req.body;
+        const email = req.params.email;
+        console.log(updateDoc, email);
+        try {
+          const filter = { email: email };
+          const result = await userCollection.updateOne(filter, {
+            $set: { ...updateDoc },
+          });
+          console.log(result);
+          // res.send("result");
+        } catch (e) {
+          console.log(e);
+        }
+      }
+    );
 
     // get  user
     app.get("/user/:email", verifyJWT, async (req, res) => {
@@ -69,12 +94,14 @@ async function run() {
       });
       res.send(users);
     });
+
     // get all user
     app.get("/users", verifyJWT, verifyAdmin, async (req, res) => {
       const users = await userCollection.find().toArray();
       res.send(users);
     });
 
+    //
     // get admin
     app.get("/admin/:email", async (req, res) => {
       const email = req.params.email;
@@ -82,6 +109,7 @@ async function run() {
       const isAdmin = user?.role === "admin";
       res.send({ admin: isAdmin });
     });
+
     // set Admin
     app.put("/user/admin/:email", verifyJWT, verifyAdmin, async (req, res) => {
       const email = req.params.email;
@@ -140,10 +168,8 @@ async function run() {
     app.post("/order", verifyJWT, async (req, res) => {
       const order = req.body;
       console.log(order.productId);
-
       const result = await orderCollection.insertOne(order);
       const id = order.productId;
-
       const product = await productsCollection.findOne({ _id: ObjectId(id) });
 
       const filter = { _id: ObjectId(id) };
@@ -156,11 +182,33 @@ async function run() {
       );
       console.log(productResult);
       console.log("product", product);
-      console.log("product quantity", product.quantity - order.orderQuantity);
+      console.log("product quantity", product?.quantity - order.orderQuantity);
       res.send(result);
     });
+    // get a order
+    app.get("/order", async (req, res) => {
+      const order = await orderCollection.find().toArray();
 
-    // get my order
+      const product = await productsCollection.findOne({
+        _id: ObjectId(order.productId),
+      });
+
+      res.send({ ...order, ...product });
+    });
+    // get a order
+    app.get("/order/:orderId", async (req, res) => {
+      const orderId = req.params.orderId;
+      const order = await orderCollection.findOne({
+        _id: ObjectId(orderId),
+      });
+      const product = await productsCollection.findOne({
+        _id: ObjectId(order.productId),
+      });
+
+      res.send({ ...order, ...product });
+    });
+
+    // get my orders
     app.get("/orders/:email", async (req, res) => {
       const email = req.params.email;
       const query = { email: email };
@@ -173,9 +221,63 @@ async function run() {
         );
         return { ...productDetails, ...order };
       });
-      console.log(orderarray);
+      // console.log(orderarray);
 
       res.send(orderarray);
+    });
+
+    // edit order
+
+    app.put("/order/:id", verifyJWT, async (req, res) => {
+      const orderId = req.params.id;
+
+      const orderQuantity = req.body;
+      const filter = { _id: ObjectId(orderId) };
+
+      console.log("edit order", orderId);
+      const result = await orderCollection.updateOne(
+        filter,
+        {
+          $set: orderQuantity,
+        },
+        { upsert: true }
+      );
+      console.log(result);
+      res.send(result);
+    });
+    // delete product
+
+    app.delete("/product/:id", verifyJWT, verifyAdmin, async (req, res) => {
+      const orderId = req.params.id;
+      const filter = { _id: ObjectId(orderId) };
+
+      console.log(orderId);
+      const result = await productsCollection.deleteOne(filter);
+      res.send(result);
+    });
+    // cancel order
+
+    app.delete("/order/:id", verifyJWT, async (req, res) => {
+      const orderId = req.params.id;
+      const filter = { _id: ObjectId(orderId) };
+
+      console.log(orderId);
+      const result = await orderCollection.deleteOne(filter);
+      res.send(result);
+    });
+
+    //get  rewiew
+    app.get("/reviews", async (req, res) => {
+      const reviews = await reviewsCollection.find().toArray();
+      res.send(reviews);
+    });
+    // add a review
+    app.post("/reviews", verifyJWT, async (req, res) => {
+      const rewiews = req.body;
+      console.log(rewiews);
+
+      const result = await reviewsCollection.insertOne(rewiews);
+      res.send(result);
     });
   } finally {
     //try end
