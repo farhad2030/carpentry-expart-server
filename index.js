@@ -7,6 +7,9 @@ const port = process.env.PORT || 5000;
 
 const app = express();
 
+// https://lit-lowlands-91194.herokuapp.com/
+
+const stripe = require("stripe")(process.env.STRIPE_PRIVATE_KEY);
 // middelwere
 app.use(cors());
 app.use(express.json());
@@ -51,6 +54,26 @@ async function run() {
       .collection("reviews");
 
     // /apis
+
+    // stripe payment
+    app.post("/create-payment-intent", async (req, res) => {
+      const { price } = req.body;
+      console.log(price);
+      // convert to cent or paisha
+      const amount = price * 100;
+      const paymentIntent = await stripe.paymentIntents.create({
+        amount: amount,
+        currency: "usd",
+        payment_method_types: ["card"],
+      });
+      res.send({ ClientSecret: paymentIntent.client_secret });
+      try {
+      } catch (e) {
+        console.log(e);
+        res.status(500).send({ error: e.message });
+      }
+    });
+
     // varify admin
     const verifyAdmin = async (req, res, next) => {
       const requester = req.decoded.email;
@@ -185,16 +208,54 @@ async function run() {
       console.log("product quantity", product?.quantity - order.orderQuantity);
       res.send(result);
     });
-    // get a order
-    app.get("/order", async (req, res) => {
-      const order = await orderCollection.find().toArray();
 
+    app.patch("/order", verifyJWT, async (req, res) => {
+      // const orderId = req.params.orderId;
+      // console.log(orderId);
+      const { orderId, transactionId } = req.body;
+      const filter = { _id: ObjectId(orderId) };
+      // const transactionId = trx
+      console.log(req.body);
+      console.log(orderId, transactionId);
+
+      const result = await orderCollection.updateOne(
+        filter,
+        { $set: { transactionId, status: "paid" } },
+        { upsert: true }
+      );
+      res.send(result);
+    });
+
+    app.patch("/admin/order", verifyJWT, async (req, res) => {
+      // const orderId = req.params.orderId;
+      // console.log(orderId);
+      const { orderId, status } = req.body;
+      const filter = { _id: ObjectId(orderId) };
+      // const transactionId = trx
+      console.log(req.body);
+      console.log(orderId);
+
+      const result = await orderCollection.updateOne(
+        filter,
+        { $set: { status } },
+        { upsert: true }
+      );
+      res.send(result);
+    });
+
+    //
+    app.get("/orders/:emil", async (req, res) => {
+      const email = req.params.orderId;
+      const order = await orderCollection.findOne({
+        _id: ObjectId(email),
+      });
       const product = await productsCollection.findOne({
         _id: ObjectId(order.productId),
       });
 
       res.send({ ...order, ...product });
     });
+
     // get a order
     app.get("/order/:orderId", async (req, res) => {
       const orderId = req.params.orderId;
@@ -208,22 +269,11 @@ async function run() {
       res.send({ ...order, ...product });
     });
 
-    // get my orders
-    app.get("/orders/:email", async (req, res) => {
-      const email = req.params.email;
-      const query = { email: email };
-      const orders = await orderCollection.find(query).toArray();
-      const products = await productsCollection.find().toArray();
-
-      const orderarray = orders.map((order) => {
-        const productDetails = products.find(
-          (product) => product._id == order.productId
-        );
-        return { ...productDetails, ...order };
-      });
-      // console.log(orderarray);
-
-      res.send(orderarray);
+    // get  orders
+    app.get("/orders", async (req, res) => {
+      const orders = await orderCollection.find().toArray();
+      console.log(orders);
+      res.send(orders);
     });
 
     // edit order
